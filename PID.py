@@ -1,4 +1,4 @@
-# Untitled - By: 李霁飞 - 周六 4月 16 2022
+# Untitled - By: younin - 周六 4月 16 2022
 from pyb import millis
 from math import pi, isnan
 
