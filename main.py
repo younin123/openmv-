@@ -10,12 +10,20 @@
 # 这会破坏线条拟合.
 
 #设置阈值，（0，100）检测黑色线
-THRESHOLD = (0, 100) # Grayscale threshold for dark things...
+THRESHOLD = (0, 80) # Grayscale threshold for dark things...
 
 #设置是否使用img.binary()函数进行图像分割
 BINARY_VISIBLE = True # 首先执行二进制操作，以便您可以看到正在运行的线性回归...虽然可能会降低FPS。
 
-import sensor, image, time
+import sensor, image, time, car
+from pid import PID
+from pyb import LED
+rho_pid = PID(p=0.4, i=0)
+theta_pid = PID(p=0.1, i=0)
+
+#LED(1).on()
+#LED(2).on()
+#LED(3).on()
 
 sensor.reset()
 sensor.set_pixformat(sensor.GRAYSCALE)
@@ -26,20 +34,23 @@ clock = time.clock()
 while(True):
     clock.tick()
     img = sensor.snapshot().binary([THRESHOLD]) if BINARY_VISIBLE else sensor.snapshot()
-
-    # Returns a line object similar to line objects returned by find_lines() and
-    # find_line_segments(). You have x1(), y1(), x2(), y2(), length(),
-    # theta() (rotation in degrees), rho(), and magnitude().
-    #
-    # magnitude() represents how well the linear regression worked. It goes from
-    # (0, INF] where 0 is returned for a circle. The more linear the
-    # scene is the higher the magnitude.
-
-    # 函数返回回归后的线段对象line，有x1(), y1(), x2(), y2(), length(), theta(), rho(), magnitude()参数。
-    # x1 y1 x2 y2分别代表线段的两个顶点坐标，length是线段长度，theta是线段的角度。
-    # magnitude表示线性回归的效果，它是（0，+∞）范围内的一个数字，其中0代表一个圆。如果场景线性回归的越好，这个值越大。
-    line = img.get_regression([(255,255) if BINARY_VISIBLE else THRESHOLD])
-
-    if (line): img.draw_line(line.line(), color = 127)
-    print("FPS %f, mag = %s" % (clock.fps(), str(line.magnitude()) if (line) else "N/A"))
-
+    blobs = img.find_blobs([THRESHOLD], roi = (0,0,80,60),invert=True)
+    if (blobs):
+        for blob in blobs:
+            print(blob.w())
+            img.draw_rectangle(blob.rect())
+            #a +=
+    line = img.get_regression([(THRESHOLD) if BINARY_VISIBLE else THRESHOLD],invert=True)
+    if (line): img.draw_line(line.line(), x_stride = 20, color = 127)
+    if (line):
+        rho_err = abs(line.rho())-img.width()/2
+        if line.theta()>90:
+            theta_err = line.theta()-180
+        else:
+            theta_err = line.theta()
+        img.draw_line(line.line(), color = 127)
+        rho_output = rho_pid.get_pid(rho_err,1)
+        theta_output = theta_pid.get_pid(theta_err,1)
+        output = rho_output+theta_output
+        #car.run(50+output, 50-output)
+        print(50+output, 50-output)
